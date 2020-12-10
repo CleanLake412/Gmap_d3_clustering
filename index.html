@@ -10,18 +10,23 @@ html, body, #map {
   padding: 0;
 }
 
-.stations, .stations svg {
+.marker-layer, .marker-layer svg {
   position: absolute;
+    overflow: visible;
 }
 
-.stations svg {
+/*.marker-layer svg {
   width: 60px;
   height: 20px;
   padding-right: 100px;
   font: 10px sans-serif;
+}*/
+
+.marker-layer .marker {
+    cursor: pointer;
 }
 
-.stations circle {
+.marker-layer circle {
   fill: brown;
   stroke: black;
   stroke-width: 1.5px;
@@ -31,6 +36,7 @@ html, body, #map {
 <div id="map"></div>
 <script src="//maps.google.com/maps/api/js?sensor=true&key=AIzaSyB2H3cHKBgUiALlqqWBe4BvCbtDUFKzY7A"></script>
 <script src="//d3js.org/d3.v3.min.js"></script>
+<script src="d3-marker-cluster.js"></script>
 <script>
 
 // Create the Google Map…
@@ -60,8 +66,11 @@ const createDummy = amount => {
 };
 
 let markers;
+//let markerQuadTree;
+
 window.addEventListener("load", function () {
     markers = createDummy(300);
+    //markerQuadTree = d3.geom.quadtree()(markers);
 
     renderMap();
 });
@@ -71,42 +80,68 @@ function renderMap() {
 
     // Add the container when the overlay is added to the map.
     overlay.onAdd = function() {
-        var layer = d3.select(this.getPanes().overlayLayer)
+        var layer = d3.select(this.getPanes().overlayMouseTarget) // overlayLayer
             .append("div")
-            .attr("class", "stations");
+            .attr("class", "marker-layer");
 
         // Draw each marker as a separate SVG element.
         // We could use a single SVG, but what size would it have?
         overlay.draw = function() {
             var projection = this.getProjection(),
-                padding = 10;
+                padding = 0;
 
-            var marker = layer.selectAll("svg")
+            if (layer.select("svg").empty()) {
+                layer.append("svg");
+            }
+
+            var marker = layer.select("svg")
+                .selectAll("g")
                 .data(markers)
                 .each(transform) // update existing markers
-                .enter().append("svg")
+                .enter()
+                .append("g")
                 .each(transform)
-                .attr("class", "marker");
+                .attr("class", "marker")
+                .on("mouseover", function(d) {
+                    d3.select(this).select("path").attr("fill", "#ff4040");
+                    d3.event.preventDefault();
+                })
+                .on("mouseout", function(d) {
+                    d3.select(this).select("path").attr("fill", "red");
+                    d3.event.preventDefault();
+                });
 
             // Add a circle.
-            marker.append("circle")
+            /*marker.append("circle")
                 .attr("r", 4.5)
                 .attr("cx", padding)
-                .attr("cy", padding);
+                .attr("cy", padding)
+                .on("mouseover", function(d) {
+                    //console.log(d);
+                });*/
+            marker.append("path")
+                .attr("d", "M-24,-24 L-24,-4 L-4,-4 L0,0 L4,-4 L24,-4 L24,-24z")
+                .attr("stroke", "white")
+                .attr("stroke-color", 0.5)
+                .attr("fill", "red");
 
             // Add a label.
             marker.append("text")
-                .attr("x", padding + 7)
-                .attr("y", padding)
+                .attr("text-anchor", "middle")
+                .attr("x", padding)
+                .attr("y", padding - 13)
                 .attr("dy", ".31em")
+                .attr("fill", "white")
                 .text(function(d) { return d.contractPrice; });
 
             function transform(d) {
                 d = new google.maps.LatLng(d.position.lat, d.position.lng);
                 d = projection.fromLatLngToDivPixel(d);
+                //console.log(d);
                 return d3.select(this)
-                    .style("left", (d.x - padding) + "px")
-                    .style("top", (d.y - padding) + "px");
+                    //.style("left", (d.x - padding) + "px")
+                    //.style("top", (d.y - padding) + "px");
+                    .attr("transform", "translate(" + (d.x - padding) + "," + (d.y - padding) + ")");
             }
         };
     };
